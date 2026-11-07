@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#111a12">
+  <meta name="description" content="POSTAVKI — генератор отписи состава поставок РОиО (РЛС, ОБ, ВС). История 10 отчётов, копирование в Discord.">
+  <title>POSTAVKI — генератор поставок РОиО</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b100d;
+      --surface: #171f18;
+      --surface-alt: #111811;
+      --surface-input: #0c130e;
+      --border: #354334;
+      --border-light: #455443;
+      --text: #edf0df;
+      --muted: #afb9a3;
+      --soft: #899881;
+      --accent: #bac47d;
+      --accent-hover: #d2d99a;
+      --accent-bg: rgba(186,196,125,.11);
+      --green: #b4d28a;
+      --sand: #dac38d;
+      --radius: 5px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; overflow-x: clip; }
+    body {
+      min-height: 100vh; margin: 0; color: var(--text);
+      background:
+        radial-gradient(ellipse 100% 55% at 70% -8%, rgba(85,111,67,.19), transparent 58%),
+        linear-gradient(90deg, rgba(151,169,113,.025) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(151,169,113,.025) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 46px 46px, 46px 46px, auto;
+      font-family: "Segoe UI", Inter, -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+      font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+    body:before { content: ""; position: absolute; pointer-events: none; inset: 0 0 auto; height: 4px; z-index: 5;
+      background: repeating-linear-gradient(115deg, #a5ae6e 0 17px, #1f281c 17px 34px); }
+    button,input,select,textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline: 2px solid var(--sand); outline-offset:3px; }
+    .shell { width:min(1160px, calc(100% - 40px)); margin:0 auto; padding:28px 0 40px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:6px 0 22px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+    .brand { display:flex; align-items:center; gap:11px; color:var(--text); text-decoration:none; }
+    .brand-icon { width:46px; height:46px; flex:none; display:grid; place-items:center; color:#d3dcaa; background:#293527; border:1px solid #6a7852;
+      clip-path:polygon(0 0, 86% 0, 100% 14%, 100% 100%, 14% 100%, 0 86%); }
+    .brand-icon svg { width:27px; height:27px; }
+    .brand-lines { display:flex; flex-direction:column; gap:1px; }
+    .brand-name { font:900 18px/1.14 "Arial Narrow", "Segoe UI", sans-serif; letter-spacing:.2em; }
+    .brand-caption { color:#a0ae91; font:700 9px/1.5 Consolas, monospace; letter-spacing:.18em; }
+    .top-actions { display:flex; align-items:center; gap:12px; }
+    .top-note { display:inline-flex; align-items:center; gap:9px; color:var(--muted); font:700 10px/1.2 Consolas, monospace;
+      letter-spacing:.05em; text-transform:uppercase; white-space:nowrap; }
+    .green-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 10px rgba(180,210,138,.45); }
+    .top-reset { display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:11px 14px; background:#232a20; color:#e3d2a0;
+      font:700 11px/1.2 "Segoe UI",sans-serif; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; border:1px solid #716846; border-radius:3px; }
+    .top-reset:hover { background:#37392a; border-color:#c5ac73; }
+    .top-reset svg { width:16px; height:16px; flex:none; }
+    .hero { position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0,1fr) 288px; align-items:stretch; gap:24px;
+      margin-bottom:22px; padding:31px 34px; border:1px solid #526245;
+      background:linear-gradient(110deg, rgba(34,46,31,.97),rgba(19,27,21,.94) 70%),#172117; }
+    .hero:before { content:""; position:absolute; inset:0; pointer-events:none; opacity:.22;
+      background:repeating-radial-gradient(circle at 76% 50%,transparent 0,transparent 25px,#82906a 26px,transparent 27px),
+        linear-gradient(90deg, transparent 49.85%, #9ca989 50%, transparent 50.15%);
+    }
+    .hero:after { content:""; position:absolute; top:0; left:0; width:102px; height:5px; background:var(--sand); }
+    .hero-main,.hero-telemetry { position:relative; z-index:1; }
+    .eyebrow { display:flex; align-items:center; gap:10px; font:750 10px/1.5 Consolas,monospace;
+      letter-spacing:.14em; color:#c8d6a4; text-transform:uppercase; margin-bottom:12px; }
+    .eyebrow:before { content:""; width:19px; height:1px; background:#c8d6a4; }
+    h1 { font:900 clamp(45px,6.4vw,81px)/.99 "Arial Narrow", Impact, "Segoe UI",sans-serif;
+      letter-spacing:.09em; text-transform:uppercase; margin:0; color:#f0f1dd; }
+    .hero-period { color:var(--sand); }
+    .hero-lead { margin:12px 0 7px; font-size:19px; font-weight:750; letter-spacing:.02em; }
+    .subtitle { margin:0; max-width:580px; color:#b7c2ae; font-size:13px; line-height:1.65; }
+    .hero-markings { margin-top:21px; display:flex; flex-wrap:wrap; gap:8px; }
+    .hero-markings span { color:#c1cba9; font:700 10px/1.4 Consolas,monospace; border:1px solid #526246; background:#263324; padding:5px 9px; letter-spacing:.06em; }
+    .hero-telemetry { align-self:stretch; display:flex; flex-direction:column; justify-content:center; background:rgba(10,17,11,.58);
+      padding:20px; border:1px solid #536248; border-left:3px solid #9daa73; }
+    .telemetry-eyebrow { color:#94a589; font:700 10px/1.2 Consolas,monospace; letter-spacing:.18em; margin-bottom:7px; }
+    .telemetry-number { color:var(--sand); font:900 42px/1.1 Consolas,monospace; letter-spacing:.05em; }
+    .telemetry-title { margin:3px 0 14px; font-size:12px; font-weight:700; color:#ccd2b9; }
+    .telemetry-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; border-top:1px solid #44543f; padding-top:12px; }
+    .telemetry-label { display:block; font:700 9px/1.3 Consolas,monospace; text-transform:uppercase; letter-spacing:.08em; color:#9aa993; }
+    .telemetry-value { display:block; margin-top:4px; color:#e6eacd; font:800 17px/1.3 Consolas,monospace; }
+    .panel { position:relative; background:linear-gradient(145deg, #1a241a, #141c15 75%); border:1px solid var(--border);
+      border-radius:var(--radius); box-shadow:0 15px 35px rgba(0,0,0,.13); }
+    .panel:before,.panel:after { content:""; position:absolute; pointer-events:none; width:13px; height:13px; }
+    .panel:before { left:-1px; top:-1px; border-left:2px solid #98a66d; border-top:2px solid #98a66d; }
+    .panel:after { right:-1px; bottom:-1px; border-right:2px solid #63754d; border-bottom:2px solid #63754d; }
+    .panel-pad { padding:24px; }
+    .panel-title { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; }
+    .title-left { display:flex; align-items:flex-start; gap:12px; }
+    .panel-icon { display:grid; flex:none; place-items:center; width:36px; height:36px; color:var(--sand);
+      background:#293225; border:1px solid #5c6848; border-radius:2px; }
+    .panel-icon svg { width:19px; height:19px; }
+    h2 { font-weight:800; font-size:17px; letter-spacing:.005em; margin:0; }
+    .section-sub { color:var(--soft); font-size:12px; margin:3px 0 0; }
+    .section-tag { padding:6px 10px; color:#bbca9e; border:1px solid #4b5e43; background:#253024; border-radius:2px;
+      font:700 10px/1.2 Consolas,monospace; white-space:nowrap; letter-spacing:.04em; }
+    .field-label { display:block; margin:0 0 8px; color:#c1cbb5; font-size:11px; text-transform:uppercase; letter-spacing:.075em; font-weight:800; }
+    .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:5px; border:1px solid #3a4837; background:#0e160f; border-radius:3px; }
+    .tab { position:relative; min-height:47px; color:#aebb9e; background:transparent; border:1px solid transparent; border-radius:2px;
+      font:900 14px/1.2 Consolas,monospace; letter-spacing:.11em; transition:background .15s,color .15s; }
+    .tab:hover { background:#293729; color:#f5f6e8; }
+    .tab[aria-checked="true"] { color:#182218; background:#bbc786; border-color:#e0dfa9; box-shadow:inset 0 -3px #81915e; }
+    .params-grid { display:grid; grid-template-columns:minmax(0,1.45fr) repeat(2,minmax(0,1fr)); gap:16px; margin-top:19px; }
+    .select-wrap { position:relative; }
+    select,input[type="date"],input[type="time"] { width:100%; min-height:46px; background:var(--surface-input); color:var(--text);
+      border:1px solid var(--border-light); border-radius:3px; padding:0 13px; }
+    select { padding-right:32px; appearance:none; }
+    .select-wrap:after { content:""; position:absolute; top:18px; right:16px; width:7px; height:7px; border-right:2px solid #b9c59d;
+      border-bottom:2px solid #b9c59d; transform:rotate(45deg); pointer-events:none; }
+    select:hover,input[type="date"]:hover,input[type="time"]:hover { border-color:#86966f; }
+    input::-webkit-calendar-picker-indicator { filter:invert(.8) sepia(.2); cursor:pointer; }
+    .meta-row { display:flex; align-items:center; justify-content:space-between; gap:10px 20px; flex-wrap:wrap; margin-top:14px; }
+    .hint { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--soft); }
+    .hint svg { flex:none; width:15px; height:15px; }
+    .link-action { display:inline-flex; gap:7px; align-items:center; background:transparent; border:0; padding:5px 0; color:#c8d5a3;
+      font-size:12px; font-weight:700; }
+    .link-action:hover { color:#f0edc5; }
+    .link-action svg { width:15px; height:15px; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr); align-items:start; gap:18px; margin-top:18px; }
+    .members-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .member { min-width:0; padding:12px; background:#0f170f; border:1px solid #364634; border-radius:3px; }
+    .member:focus-within { border-color:#9bac70; }
+    .member-label { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:9px;
+      color:#e0e7d2; font:800 12px/1.35 Consolas,monospace; }
+    .member-index { color:#788c73; font:700 10px/1.25 Consolas,monospace; }
+    .stepper { display:flex; height:40px; align-items:center; background:#0a120d; border:1px solid #465740; border-radius:2px; overflow:hidden; }
+    .step-btn { flex:0 0 39px; background:#283527; color:#cbd7b1; border:0; height:100%; font:600 20px/1 Consolas,monospace; }
+    .step-btn:hover { background:#455c3c; color:#fff; }
+    .count-input { flex:1; min-width:0; text-align:center; color:#eaf0d9; font:800 17px/1 Consolas,monospace;
+      background:transparent; border:0; height:100%; padding:0 4px; -moz-appearance:textfield; }
+    .count-input::-webkit-outer-spin-button,.count-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    .count-input:focus-visible { outline:1px solid var(--sand); outline-offset:-2px; }
+    .member:nth-child(5) { border-color:#78805b; }
+    .counter-footer { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .stat { padding:13px 15px; background:#263126; border:1px solid #55684a; border-left:3px solid var(--sand); border-radius:2px; }
+    .stat-number { color:#ecefcd; font:900 26px/1.1 Consolas,monospace; font-variant-numeric:tabular-nums; }
+    .stat-caption { color:#aebc9d; font-size:11px; margin-top:6px; }
+    .section-bottom { display:flex; justify-content:space-between; align-items:center; gap:10px; padding-top:14px;
+      margin-top:16px; border-top:1px solid var(--border); }
+    .small-caption { font-size:11px; color:var(--soft); }
+    .btn { min-height:41px; padding:10px 14px; font:750 12px/1.2 "Segoe UI",sans-serif; color:#dfe7d2;
+      background:#283528; border:1px solid #58694d; border-radius:3px; transition:background .15s,transform .15s; }
+    .btn:hover { background:#3a4b37; }
+    .btn:active,.copy-btn:active { transform:translateY(1px); }
+    .btn svg,.copy-btn svg { width:17px; height:17px; flex:none; }
+    .btn-row { display:flex; gap:8px; align-items:center; }
+    .preview-panel { position:sticky; top:18px; overflow:hidden; }
+    .preview-meta { display:flex; align-items:center; gap:8px; color:#a6b796; font:800 10px/1.4 Consolas,monospace;
+      letter-spacing:.12em; margin-bottom:10px; }
+    .preview-meta:before { content:""; width:6px; height:6px; background:var(--sand); transform:rotate(45deg); }
+    .code-window { overflow:hidden; border:1px solid #4d6049; border-radius:2px; background:#0a130d; }
+    .code-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+      background:#223022; border-bottom:1px solid #485d42; color:#afbfa0; font:700 10px/1.3 Consolas,monospace; }
+    .window-dots { display:flex; gap:5px; }
+    .window-dots span { display:block; width:7px; height:7px; border:1px solid #879974; background:transparent; }
+    .window-dots span:first-child { background:#879974; }
+    .window-dots span:nth-child(2) { background:#b3ac72; }
+    .window-dots span:nth-child(3) { background:#6e8a68; }
+    .result-text { display:block; resize:vertical; width:100%; min-height:365px; border:0; padding:16px 17px;
+      background:repeating-linear-gradient(180deg,transparent,transparent 29px,rgba(132,164,125,.025) 30px),#0a130d;
+      color:#b9daa9; font:12.5px/1.75 Consolas,"SFMono-Regular","Liberation Mono",Menlo,monospace;
+      white-space:pre; tab-size:2; outline:none; }
+    .result-text:focus-visible { outline:1px solid var(--sand); outline-offset:-1px; }
+    .output-options { display:flex; gap:9px; align-items:center; margin:14px 0 13px; color:#bdc8b3; font-size:12px; }
+    .output-options input { accent-color:#9faf69; width:16px; height:16px; margin:0; cursor:pointer; }
+    .result-actions { display:grid; grid-template-columns:minmax(0,1fr) 142px; gap:9px; }
+    .copy-btn { display:inline-flex; gap:9px; align-items:center; justify-content:center; width:100%; min-height:49px;
+      background:#b8c486; border:1px solid #e3e2ae; color:#192219; font-size:13px; font-weight:900; text-transform:uppercase;
+      letter-spacing:.02em; border-radius:3px; box-shadow:0 4px 0 #687a50; transition:background .15s,transform .15s; }
+    .copy-btn:hover { background:#d4dea4; }
+    .copy-note { color:var(--soft); font-size:11px; margin-top:14px; text-align:center; }
+    .save-btn { min-height:49px; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+    .save-btn svg { width:16px; height:16px; }
+    .history-panel { margin-top:18px; }
+    .history-header-actions { display:flex; align-items:center; gap:13px; }
+    .history-count { white-space:nowrap; color:#cddbb3; font:800 11px/1.3 Consolas,monospace; }
+    .history-help { color:var(--soft); font-size:12px; margin:-5px 0 16px; }
+    .history-list { display:grid; gap:10px; }
+    .history-empty { padding:26px 18px; text-align:center; font-size:13px; color:#a9baa3;
+      border:1px dashed #52634b; background:#101910; border-radius:2px; }
+    .history-item { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:14px;
+      background:#0f180f; border:1px solid #394a37; border-left:3px solid #677f58; border-radius:2px; padding:14px 15px; }
+    .history-title { color:#e2eaca; font:900 13px/1.35 Consolas,monospace; }
+    .history-meta { display:flex; flex-wrap:wrap; gap:5px 13px; margin-top:5px; color:#a1b09b; font-size:12px; }
+    .history-meta span { white-space:nowrap; }
+    .history-buttons { display:flex; gap:8px; }
+    .history-buttons .btn { min-height:37px; padding:8px 12px; }
+    .history-danger { color:#dbb6a5; }
+    .history-danger:hover { color:#ffd2bb; }
+    .footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;
+      margin-top:8px; padding:22px 0 0; border-top:1px solid #2b392b; color:#8e9c83; font:700 10px/1.5 Consolas,monospace; letter-spacing:.025em; }
+    .toast { position:fixed; z-index:10; right:24px; bottom:24px; max-width:calc(100vw - 40px); opacity:0; pointer-events:none;
+      transform:translateY(12px); transition:opacity .2s,transform .2s; padding:12px 16px; border-radius:2px; color:#e3f1cf;
+      background:#293d2b; border:1px solid #6f9465; box-shadow:0 12px 28px rgba(0,0,0,.35); font-size:13px; }
+    .toast.visible { opacity:1; transform:translateY(0); }
+    .toast.error { background:#3b2722; border-color:#9f6856; color:#ffdfd4; }
+    @media(max-width:920px) {
+      .workspace { grid-template-columns:1fr; }
+      .preview-panel { position:static; }
+      .result-text { min-height:325px; }
+    }
+    @media(max-width:700px) {
+      .hero { grid-template-columns:1fr; padding:25px; }
+      .hero-telemetry { display:grid; grid-template-columns:1fr 2fr; gap:8px 16px; padding:13px 16px; }
+      .telemetry-title { margin:0; }
+      .telemetry-grid { border-top:0; padding-top:0; align-self:center; }
+      .telemetry-number { font-size:30px; }
+    }
+    @media(max-width:640px) {
+      .shell { width:calc(100% - 24px); padding-top:20px; }
+      .topbar { margin-bottom:16px; padding-bottom:17px; }
+      .top-note { display:none; }
+      .top-reset { font-size:10px; padding:10px; }
+      .brand-name { font-size:16px; }
+      .brand-caption { font-size:8px; letter-spacing:.1em; }
+      .brand-icon { width:39px; height:39px; }
+      .hero { padding:23px 19px; gap:18px; }
+      h1 { font-size:clamp(39px,11vw,58px); }
+      .hero-lead { font-size:16px; }
+      .subtitle { font-size:12px; }
+      .panel-pad { padding:18px; }
+      .params-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }
+      .recipient-field { grid-column:1/-1; }
+      .panel-title { margin-bottom:18px; }
+      .section-tag { display:none; }
+      .member { padding:10px; }
+      .members-grid { gap:8px; }
+      .step-btn { flex-basis:35px; }
+      .result-actions { grid-template-columns:1fr; }
+      .history-item { grid-template-columns:1fr; }
+      .history-buttons .btn { flex:1; }
+      .history-header-actions { gap:8px; }
+      .history-count { display:none; }
+      .footer { line-height:1.6; }
+    }
+    @media(max-width:380px) {
+      .brand { gap:7px; }
+      .top-reset svg { display:none; }
+      .members-grid { grid-template-columns:1fr; }
+      .member { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+      .member-label { margin:0; }
+      .stepper { width:155px; flex:none; }
+      .hero-telemetry { display:block; }
+      .telemetry-grid { border-top:1px solid #44543f; padding-top:10px; margin-top:10px; }
+    }
+    @media(prefers-reduced-motion:reduce) {
+      *,*:before,*:after { scroll-behavior:auto !important; transition:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h11v9H3zM14 11h4l3 3v3h-7zM6 8V5h6v3M3 12h11M18 11v3h3"/><circle cx="7" cy="18" r="2" fill="#293527"/><circle cx="18" cy="18" r="2" fill="#293527"/></svg>
+        </div>
+        <span class="brand-lines"><span class="brand-name">POSTAVKI</span><span class="brand-caption">РОиО / LOGISTICS SYSTEM</span></span>
+      </div>
+      <div class="top-actions">
+        <div class="top-note"><span class="green-dot" aria-hidden="true"></span> СИСТЕМА АКТИВНА / LOCAL MODE</div>
+        <button type="button" class="top-reset" id="resetSessionBtn" title="Сбросить текущую форму. История поставок сохранится.">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11a9 9 0 1 1 3 7M3 4v7h7"/></svg>
+          Сбросить сессию
+        </button>
+      </div>
+    </div>
+
+    <header class="hero">
+      <div class="hero-main">
+        <div class="eyebrow">РОиО / СИСТЕМА УЧЁТА ПОСТАВОК / v2.0</div>
+        <h1>POSTAVKI<span class="hero-period">.</span></h1>
+        <div class="hero-lead">Генератор состава поставок</div>
+        <p class="subtitle">Формирование отчётов о составе конвоя. Выберите тип поставки, подразделение-получателя и внесите численность участников — готовая отпись сформируется автоматически.</p>
+        <div class="hero-markings" aria-label="Доступные типы поставок"><span>РЛС</span><span>ОБ</span><span>ВС</span><span>DISCORD READY</span></div>
+      </div>
+      <aside class="hero-telemetry" aria-label="Сводка текущей поставки">
+        <div>
+          <div class="telemetry-eyebrow">ОПЕРАТИВНАЯ СВОДКА</div>
+          <div class="telemetry-number" id="heroType">ВС</div>
+          <div class="telemetry-title">Текущий тип поставки</div>
+        </div>
+        <div class="telemetry-grid">
+          <div><span class="telemetry-label">ПОЛУЧАТЕЛЬ</span><strong class="telemetry-value" id="heroRecipient">ФСО</strong></div>
+          <div><span class="telemetry-label">ЛИЧНЫЙ СОСТАВ</span><strong class="telemetry-value" id="heroTotal">0</strong></div>
+        </div>
+      </aside>
+    </header>
+
+    <section class="panel panel-pad" aria-labelledby="settingsTitle">
+      <div class="panel-title">
+        <div class="title-left">
+          <span class="panel-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="#293225"/><circle cx="16" cy="12" r="2" fill="#293225"/><circle cx="10" cy="17" r="2" fill="#293225"/></svg></span>
+          <div><h2 id="settingsTitle">Параметры поставки</h2><p class="section-sub">Тип, получатель, дата и время</p></div>
+        </div>
+        <span class="section-tag">01 / ПАРАМЕТРЫ</span>
+      </div>
+
+      <div>
+        <span class="field-label" id="typeLabel">Тип поставки</span>
+        <div class="tabs" role="radiogroup" aria-labelledby="typeLabel" id="typeTabs">
+          <button type="button" role="radio" class="tab" data-type="РЛС" aria-checked="false">РЛС</button>
+          <button type="button" role="radio" class="tab" data-type="ОБ" aria-checked="false">ОБ</button>
+          <button type="button" role="radio" class="tab" data-type="ВС" aria-checked="true">ВС</button>
+        </div>
+      </div>
+
+      <div class="params-grid">
+        <div class="recipient-field">
+          <label class="field-label" for="recipient">Кому доставляли</label>
+          <div class="select-wrap"><select id="recipient">
+            <option value="ВС РФ">ВС РФ</option><option value="УВД">УВД</option><option value="ФСБ">ФСБ</option>
+            <option value="ГИБДД">ГИБДД</option><option value="ФСО" selected>ФСО</option><option value="УФСИН">УФСИН</option>
+            <option value="ФСВНГ">ФСВНГ</option><option value="ЦГБ 3">ЦГБ 3</option><option value="ЦГБ 7">ЦГБ 7</option>
+            <option value="Правик">Правик</option>
+          </select></div>
+        </div>
+        <div>
+          <label class="field-label" for="dateInput">Дата</label>
+          <input id="dateInput" type="date" required>
+        </div>
+        <div>
+          <label class="field-label" for="timeInput">Время</label>
+          <input id="timeInput" type="time" required>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>Дата и время берутся с вашего устройства</span>
+        <button type="button" class="link-action" id="nowBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M20 12a8 8 0 1 0-2 5"/></svg>Установить текущее время</button>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section class="panel panel-pad" aria-labelledby="membersTitle">
+        <div class="panel-title">
+          <div class="title-left">
+            <span class="panel-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2H3zM17 8a3 3 0 0 1 0 6M17 17c2 0 4 1 4 3"/></svg></span>
+            <div><h2 id="membersTitle">Состав поставки</h2><p class="section-sub">Укажите количество участников от каждой структуры</p></div>
+          </div>
+          <span class="section-tag">02 / СОСТАВ</span>
+        </div>
+        <div class="members-grid" id="membersGrid"></div>
+        <div class="counter-footer" aria-live="polite">
+          <div class="stat"><div class="stat-number" id="totalCount">0</div><div class="stat-caption">Всего участников</div></div>
+          <div class="stat"><div class="stat-number" id="activeCount">0 / 10</div><div class="stat-caption">Структур с участниками</div></div>
+        </div>
+        <div class="section-bottom">
+          <span class="small-caption">Нулевые значения тоже попадут в отчёт</span>
+        </div>
+      </section>
+
+      <section class="panel panel-pad preview-panel" aria-labelledby="resultTitle">
+        <div class="panel-title">
+          <div class="title-left">
+            <span class="panel-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></span>
+            <div><h2 id="resultTitle">Готовая отпись</h2><p class="section-sub">Результат обновляется при каждом изменении</p></div>
+          </div>
+          <span class="section-tag">03 / РЕЗУЛЬТАТ</span>
+        </div>
+        <div class="preview-meta">ПРЕДПРОСМОТР ТЕКСТА</div>
+        <div class="code-window">
+          <div class="code-header"><div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div><span>Discord · отчёт о поставке</span></div>
+          <textarea id="resultText" class="result-text" aria-label="Готовый текст отчёта" spellcheck="false" readonly></textarea>
+        </div>
+        <label class="output-options"><input id="fencesCheckbox" type="checkbox" checked><span>Добавлять оформление <code>```r</code> для Discord</span></label>
+        <div style="margin-bottom:13px">
+          <label class="field-label" for="deliveryStatus">Итог поставки</label>
+          <div class="select-wrap"><select id="deliveryStatus"><option value="Довезли">Довезли</option><option value="Не довезли">Не довезли</option></select></div>
+        </div>
+        <div class="result-actions">
+          <button type="button" id="copyBtn" class="copy-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="copyLabel">Скопировать отпись</span></button>
+          <button type="button" id="saveHistoryBtn" class="btn save-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2zM7 3v7h10V3M7 21v-8h10v8"/></svg>Сохранить</button>
+        </div>
+        <div class="copy-note">При копировании поставка автоматически сохраняется в истории</div>
+      </section>
+    </div>
+    <section class="panel panel-pad history-panel" aria-labelledby="historyTitle">
+      <div class="panel-title">
+        <div class="title-left">
+          <span class="panel-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-7M3 3v6h6"/><path d="M12 7v5l3 2"/></svg></span>
+          <div><h2 id="historyTitle">Последние поставки</h2><p class="section-sub">История последних 10 сохранённых отчётов</p></div>
+        </div>
+        <div class="history-header-actions">
+          <span class="history-count" id="historyCount">0 / 10</span>
+          <button type="button" id="clearHistoryBtn" class="link-action history-danger" disabled>Очистить историю</button>
+        </div>
+      </div>
+      <p class="history-help">Нажмите «Сохранить» или «Скопировать отпись», чтобы добавить поставку. Можно открыть запись для редактирования или скопировать её без изменений.</p>
+      <div class="history-list" id="historyList" aria-live="polite"></div>
+    </section>
+    <footer class="footer"><span>POSTAVKI / РОиО • ЛОГИСТИЧЕСКАЯ ОТЧЁТНОСТЬ</span><span>LOCAL STORAGE / 10 ПОСЛЕДНИХ ПОСТАВОК / ДАННЫЕ В ВАШЕМ БРАУЗЕРЕ</span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    'use strict';
+    (() => {
+      const STRUCTURES = ['ВС РФ','УВД','ФСБ','ГИБДД','ФСО','УФСИН','ФСВНГ','ЦГБ 3','ЦГБ 7','Правик'];
+      const TYPES = ['РЛС','ОБ','ВС'];
+      const STORAGE_KEY = 'roio-delivery-generator-v1';
+      const HISTORY_KEY = 'roio-delivery-history-v1';
+      const HISTORY_LIMIT = 10;
+      const MAX_COUNT = 9999;
+      const $ = (id) => document.getElementById(id);
+      const counts = Object.fromEntries(STRUCTURES.map(name => [name, 0]));
+      let currentType = 'ВС';
+      let manualDateTime = false;
+      let toastTimer;
+      let copyTimer;
+      let history = [];
+
+      function getSaved() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; }
+        catch { return {}; }
+      }
+      function save() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            type: currentType,
+            recipient: $('recipient').value,
+            status: $('deliveryStatus').value,
+            fences: $('fencesCheckbox').checked,
+            counts
+          }));
+        } catch { /* Просмотр и копирование работают даже при отключённом localStorage. */ }
+      }
+      function getHistory() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+          if (!Array.isArray(stored)) return [];
+          return stored.filter(item => item && typeof item === 'object'
+            && TYPES.includes(item.type) && STRUCTURES.includes(item.recipient)
+            && ['Довезли', 'Не довезли'].includes(item.status)
+            && /^\d{4}-\d{2}-\d{2}$/.test(item.date || '')
+            && /^\d{2}:\d{2}$/.test(item.time || '')
+            && typeof item.report === 'string' && item.report.length < 4000
+            && item.counts && typeof item.counts === 'object').slice(0, HISTORY_LIMIT);
+        } catch { return []; }
+      }
+      function persistHistory() {
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+        catch { notify('Не удалось сохранить историю в браузере', true); }
+      }
+      function historySnapshot() {
+        if (!$('dateInput').value || !$('timeInput').value) {
+          notify('Укажите дату и время поставки', true);
+          return null;
+        }
+        return {
+          type: currentType,
+          recipient: $('recipient').value,
+          date: $('dateInput').value,
+          time: $('timeInput').value,
+          counts: { ...counts },
+          status: $('deliveryStatus').value,
+          fences: $('fencesCheckbox').checked,
+          report: makeText(),
+          createdAt: new Date().toISOString()
+        };
+      }
+      function recordCurrentReport() {
+        if (!manualDateTime) nowLocal();
+        refresh();
+        const snapshot = historySnapshot();
+        if (!snapshot) return false;
+        // Повторное сохранение идентичной отписи обновляет её позицию, не создавая дубль.
+        history = [snapshot, ...history.filter(item => item.report !== snapshot.report)].slice(0, HISTORY_LIMIT);
+        persistHistory();
+        renderHistory();
+        return true;
+      }
+      function renderHistory() {
+        const list = $('historyList');
+        list.replaceChildren();
+        $('historyCount').textContent = `${history.length} / ${HISTORY_LIMIT}`;
+        $('clearHistoryBtn').disabled = history.length === 0;
+        if (!history.length) {
+          const empty = document.createElement('div');
+          empty.className = 'history-empty';
+          empty.textContent = 'Сохранённых поставок пока нет. Скопируйте или сохраните первую отпись.';
+          list.appendChild(empty);
+          return;
+        }
+        history.forEach((item, index) => {
+          const row = document.createElement('article');
+          row.className = 'history-item';
+          const info = document.createElement('div');
+          const title = document.createElement('div');
+          title.className = 'history-title';
+          title.textContent = `[${item.type}][${item.recipient}]`;
+          const meta = document.createElement('div');
+          meta.className = 'history-meta';
+          const parts = [
+            `${item.date.split('-').reverse().join('.')} // ${Number(item.time.split(':')[0])}:${item.time.split(':')[1]}`,
+            `Участников: ${STRUCTURES.reduce((sum, name) => sum + numeric(item.counts[name]), 0)}`,
+            item.status
+          ];
+          parts.forEach(part => {
+            const span = document.createElement('span');
+            span.textContent = part;
+            meta.appendChild(span);
+          });
+          info.append(title, meta);
+          const actions = document.createElement('div');
+          actions.className = 'history-buttons';
+          for (const [action, label] of [['open', 'Открыть'], ['copy', 'Копировать']]) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn';
+            btn.dataset.action = action;
+            btn.dataset.index = String(index);
+            btn.textContent = label;
+            btn.setAttribute('aria-label', `${label}: ${title.textContent} ${parts[0]}`);
+            actions.appendChild(btn);
+          }
+          row.append(info, actions);
+          list.appendChild(row);
+        });
+      }
+      function restoreHistoryItem(item) {
+        currentType = item.type;
+        syncType();
+        $('recipient').value = item.recipient;
+        $('deliveryStatus').value = item.status;
+        $('fencesCheckbox').checked = item.fences === true;
+        $('dateInput').value = item.date;
+        $('timeInput').value = item.time;
+        manualDateTime = true;
+        STRUCTURES.forEach((name, i) => {
+          counts[name] = numeric(item.counts[name]);
+          $(`member-${i}`).value = counts[name];
+        });
+        refresh();
+        $('settingsTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        notify('Поставка открыта для редактирования');
+      }
+      function numeric(value) {
+        const num = Number.parseInt(String(value), 10);
+        return Number.isFinite(num) ? Math.min(MAX_COUNT, Math.max(0, num)) : 0;
+      }
+      function makeMembers() {
+        const grid = $('membersGrid');
+        grid.innerHTML = STRUCTURES.map((name, i) => `
+          <div class="member">
+            <label class="member-label" for="member-${i}"><span>[${name}]</span><span class="member-index">${String(i + 1).padStart(2,'0')}</span></label>
+            <div class="stepper">
+              <button class="step-btn" type="button" data-action="minus" data-idx="${i}" aria-label="Уменьшить ${name}">−</button>
+              <input class="count-input" id="member-${i}" data-idx="${i}" type="number" min="0" max="${MAX_COUNT}" step="1" inputmode="numeric" value="${counts[name]}" aria-label="Количество участников ${name}">
+              <button class="step-btn" type="button" data-action="plus" data-idx="${i}" aria-label="Увеличить ${name}">+</button>
+            </div>
+          </div>
+        `).join('');
+
+        grid.addEventListener('click', event => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const i = Number(button.dataset.idx), key = STRUCTURES[i];
+          const diff = button.dataset.action === 'plus' ? 1 : -1;
+          counts[key] = numeric(counts[key] + diff);
+          $(`member-${i}`).value = counts[key];
+          refresh();
+        });
+        grid.addEventListener('input', event => {
+          const input = event.target.closest('input[data-idx]');
+          if (!input) return;
+          const key = STRUCTURES[Number(input.dataset.idx)];
+          counts[key] = numeric(input.value);
+          if (Number(input.value) > MAX_COUNT || Number(input.value) < 0) input.value = counts[key];
+          refresh();
+        });
+        grid.addEventListener('change', event => {
+          const input = event.target.closest('input[data-idx]');
+          if (!input) return;
+          input.value = counts[STRUCTURES[Number(input.dataset.idx)]];
+        });
+      }
+      function syncType() {
+        document.querySelectorAll('#typeTabs .tab').forEach(tab => {
+          tab.setAttribute('aria-checked', String(tab.dataset.type === currentType));
+        });
+      }
+      function nowLocal() {
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        $('dateInput').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        $('timeInput').value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      function dateText() {
+        const value = $('dateInput').value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '__.__.____';
+        const [year, month, day] = value.split('-');
+        return `${day}.${month}.${year}`;
+      }
+      function timeText() {
+        const value = $('timeInput').value;
+        if (!/^\d{2}:\d{2}$/.test(value)) return '__:__';
+        const [hour, minute] = value.split(':');
+        return `${Number(hour)}:${minute}`;
+      }
+      function makeText() {
+        const lines = [
+          `${dateText()} // ${timeText()}`,
+          `[${currentType}][${$('recipient').value}]`,
+          ...STRUCTURES.map(name => `[${name}]: ${counts[name]}`),
+          `# ${$('deliveryStatus').value}`
+        ];
+        const report = lines.join('\n');
+        return $('fencesCheckbox').checked ? '```r\n' + report + '\n```' : report;
+      }
+      function refresh() {
+        const total = STRUCTURES.reduce((sum, name) => sum + counts[name], 0);
+        const active = STRUCTURES.filter(name => counts[name] > 0).length;
+        $('totalCount').textContent = total.toLocaleString('ru-RU');
+        $('activeCount').textContent = `${active} / ${STRUCTURES.length}`;
+        $('heroType').textContent = currentType;
+        $('heroRecipient').textContent = $('recipient').value;
+        $('heroTotal').textContent = String(total);
+        $('resultText').value = makeText();
+        save();
+      }
+      function notify(message, error = false) {
+        const toast = $('toast');
+        toast.textContent = message;
+        toast.classList.toggle('error', error);
+        toast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('visible'), 2400);
+      }
+      function legacyCopy(text) {
+        const input = document.createElement('textarea');
+        input.value = text;
+        input.setAttribute('readonly', '');
+        input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        let success = false;
+        try { success = document.execCommand('copy'); } catch { /* not available */ }
+        input.remove();
+        return success;
+      }
+      async function writeClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          try { await navigator.clipboard.writeText(text); return true; } catch { /* запасной способ */ }
+        }
+        return legacyCopy(text);
+      }
+      async function copyReport() {
+        if (!manualDateTime) nowLocal();
+        refresh();
+        const report = $('resultText').value;
+        if (!await writeClipboard(report)) {
+          $('resultText').focus();
+          $('resultText').select();
+          notify('Не удалось скопировать автоматически. Выделен текст для ручного копирования.', true);
+          return;
+        }
+        recordCurrentReport();
+        $('copyLabel').textContent = 'Скопировано!';
+        notify('Отпись скопирована и добавлена в историю');
+        clearTimeout(copyTimer);
+        copyTimer = setTimeout(() => $('copyLabel').textContent = 'Скопировать отпись', 1900);
+      }
+
+      function initialize() {
+        const saved = getSaved();
+        if (TYPES.includes(saved.type)) currentType = saved.type;
+        if (STRUCTURES.includes(saved.recipient)) $('recipient').value = saved.recipient;
+        if (['Довезли', 'Не довезли'].includes(saved.status)) $('deliveryStatus').value = saved.status;
+        if (typeof saved.fences === 'boolean') $('fencesCheckbox').checked = saved.fences;
+        if (saved.counts && typeof saved.counts === 'object') {
+          STRUCTURES.forEach(name => counts[name] = numeric(saved.counts[name]));
+        }
+        makeMembers();
+        syncType();
+        nowLocal();
+        refresh();
+        history = getHistory();
+        renderHistory();
+
+        $('typeTabs').addEventListener('click', event => {
+          const tab = event.target.closest('button[data-type]');
+          if (!tab || !TYPES.includes(tab.dataset.type)) return;
+          currentType = tab.dataset.type;
+          syncType();
+          refresh();
+        });
+        $('typeTabs').addEventListener('keydown', event => {
+          if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+          const idx = TYPES.indexOf(currentType);
+          currentType = TYPES[(idx + (event.key === 'ArrowRight' ? 1 : TYPES.length - 1)) % TYPES.length];
+          syncType();
+          document.querySelector(`#typeTabs [data-type="${currentType}"]`).focus();
+          refresh();
+          event.preventDefault();
+        });
+        $('recipient').addEventListener('change', refresh);
+        $('deliveryStatus').addEventListener('change', refresh);
+        $('fencesCheckbox').addEventListener('change', refresh);
+        ['dateInput','timeInput'].forEach(id => $(id).addEventListener('input', () => { manualDateTime = true; refresh(); }));
+        $('nowBtn').addEventListener('click', () => { manualDateTime = false; nowLocal(); refresh(); notify('Установлено текущее время'); });
+        $('resetSessionBtn').addEventListener('click', () => {
+          currentType = 'ВС';
+          syncType();
+          $('recipient').value = 'ФСО';
+          $('deliveryStatus').value = 'Довезли';
+          $('fencesCheckbox').checked = true;
+          STRUCTURES.forEach((name, i) => { counts[name] = 0; $(`member-${i}`).value = 0; });
+          manualDateTime = false;
+          nowLocal();
+          refresh();
+          notify('Текущая сессия сброшена. История сохранена.');
+        });
+        $('copyBtn').addEventListener('click', copyReport);
+        $('saveHistoryBtn').addEventListener('click', () => {
+          if (recordCurrentReport()) notify('Поставка сохранена в истории');
+        });
+        $('historyList').addEventListener('click', async event => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const item = history[Number(button.dataset.index)];
+          if (!item) return;
+          if (button.dataset.action === 'open') restoreHistoryItem(item);
+          if (button.dataset.action === 'copy') {
+            if (await writeClipboard(item.report)) notify('Сохранённая отпись скопирована');
+            else notify('Не удалось скопировать сохранённую отпись', true);
+          }
+        });
+        $('clearHistoryBtn').addEventListener('click', () => {
+          if (!history.length || !window.confirm('Удалить все сохранённые поставки? Текущая форма останется без изменений.')) return;
+          history = [];
+          persistHistory();
+          renderHistory();
+          notify('История поставок очищена');
+        });
+        // Пока дата и время не скорректированы вручную, они остаются актуальными.
+        setInterval(() => { if (!manualDateTime) { nowLocal(); refresh(); } }, 30000);
+      }
+      initialize();
+    })();
+  </script>
+</body>
+</html>
