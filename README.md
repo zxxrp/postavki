@@ -1,0 +1,2 @@
+# postavki
+POSTAVKI
